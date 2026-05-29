@@ -1,5 +1,5 @@
 ---
-name: change-reviewer
+name: codex-reviewer
 description: carry out a compehensive review of all changes since the last commit
 ---
 
