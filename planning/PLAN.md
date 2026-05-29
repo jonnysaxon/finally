@@ -57,14 +57,14 @@ The user runs a single Docker command (or a provided start script). A browser op
 │  └── /*              Static file serving         │
 │                      (Next.js export)            │
 │                                                 │
-│  SQLite database (volume-mounted)               │
+│  SQLite database (bind-mounted at /app/db)      │
 │  Background task: market data polling/sim        │
 └─────────────────────────────────────────────────┘
 ```
 
 - **Frontend**: Next.js with TypeScript, built as a static export (`output: 'export'`), served by FastAPI as static files
 - **Backend**: FastAPI (Python), managed as a `uv` project
-- **Database**: SQLite, single file at `db/finally.db`, volume-mounted for persistence
+- **Database**: SQLite, single file at `db/finally.db`, bind-mounted into the container at `/app/db` for persistence and host-side visibility
 - **Real-time data**: Server-Sent Events (SSE) — simpler than WebSockets, one-way server→client push, works everywhere
 - **AI integration**: LiteLLM → OpenRouter (Cerebras for fast inference), with structured outputs for trade execution
 - **Market data**: Environment-variable driven — simulator by default, real data via Massive API if key provided
@@ -98,7 +98,7 @@ finally/
 │   ├── start_windows.ps1     # Launch Docker container (Windows PowerShell)
 │   └── stop_windows.ps1      # Stop Docker container (Windows PowerShell)
 ├── test/                     # Playwright E2E tests + docker-compose.test.yml
-├── db/                       # Volume mount target (SQLite file lives here at runtime)
+├── db/                       # Bind-mount target (SQLite file lives here at runtime)
 │   └── .gitkeep              # Directory exists in repo; finally.db is gitignored
 ├── Dockerfile                # Multi-stage build (Node → Python)
 ├── docker-compose.yml        # Optional convenience wrapper
@@ -111,7 +111,7 @@ finally/
 - **`frontend/`** is a self-contained Next.js project. It knows nothing about Python. It talks to the backend via `/api/*` endpoints and `/api/stream/*` SSE endpoints. Internal structure is up to the Frontend Engineer agent.
 - **`backend/`** is a self-contained uv project with its own `pyproject.toml`. It owns all server logic including database initialization, schema, seed data, API routes, SSE streaming, market data, and LLM integration. Internal structure is up to the Backend/Market Data agents.
 - **`backend/db/`** contains schema SQL definitions and seed logic. The backend lazily initializes the database on first request — creating tables and seeding default data if the SQLite file doesn't exist or is empty.
-- **`db/`** at the top level is the runtime volume mount point. The SQLite file (`db/finally.db`) is created here by the backend and persists across container restarts via Docker volume.
+- **`db/`** at the top level is the runtime bind-mount point. The project's `db/` directory maps to `/app/db` in the container; the backend creates `finally.db` there, so the SQLite file is visible and inspectable on the host and persists across container restarts. `finally.db` is gitignored.
 - **`planning/`** contains project-wide documentation, including this plan. All agents reference files here as the shared contract.
 - **`test/`** contains Playwright E2E tests and supporting infrastructure (e.g., `docker-compose.test.yml`). Unit tests live within `frontend/` and `backend/` respectively, following each framework's conventions.
 - **`scripts/`** contains start/stop scripts that wrap Docker commands.
@@ -130,7 +130,12 @@ MASSIVE_API_KEY=
 
 # Optional: Set to "true" for deterministic mock LLM responses (testing)
 LLM_MOCK=false
+
+# Optional: LLM model used for chat (defaults to the value below if unset)
+LLM_MODEL=openrouter/openai/gpt-oss-120b
 ```
+
+(`.env.example` mirrors this block.)
 
 ### Behavior
 
@@ -189,7 +194,7 @@ The backend checks for the SQLite database on startup (or first request). If the
 
 - No separate migration step
 - No manual database setup
-- Fresh Docker volumes start with a clean, seeded database automatically
+- A fresh `db/` directory (no `finally.db` yet) starts with a clean, seeded database automatically
 
 ### Schema
 
@@ -352,7 +357,7 @@ When `LLM_MOCK=true`, the backend returns deterministic mock responses instead o
 
 The frontend is a single-page application with a dense, terminal-inspired layout. The specific component architecture and layout system is up to the Frontend Engineer, but the UI should include these elements:
 
-- **Watchlist panel** — grid/table of watched tickers with: ticker symbol, current price (flashing green/red on change), daily change %, and a sparkline mini-chart (accumulated from SSE since page load)
+- **Watchlist panel** — grid/table of watched tickers with: ticker symbol, current price (flashing green/red on change), change % (since session open — see §13 item 2; not a calendar-day change), and a sparkline mini-chart (accumulated from SSE since page load)
 - **Main chart area** — larger chart for the currently selected ticker, with at minimum price over time. Clicking a ticker in the watchlist selects it here.
 - **Portfolio heatmap** — treemap visualization where each rectangle is a position, sized by portfolio weight, colored by P&L (green = profit, red = loss)
 - **P&L chart** — line chart showing total portfolio value over time, using data from `portfolio_snapshots`
@@ -391,27 +396,27 @@ Stage 2: Python 3.12 slim
 
 FastAPI serves the static frontend files and all API routes on port 8000.
 
-### Docker Volume
+### Database Persistence (Bind Mount)
 
-The SQLite database persists via a named Docker volume:
+The SQLite database persists via a bind mount of the project `db/` directory:
 
 ```bash
-docker run -v finally-data:/app/db -p 8000:8000 --env-file .env finally
+docker run -v "$(pwd)/db:/app/db" -p 8000:8000 --env-file .env finally
 ```
 
-The `db/` directory in the project root maps to `/app/db` in the container. The backend writes `finally.db` to this path.
+The project's `db/` directory maps to `/app/db` in the container. The backend writes `finally.db` to this path, so the file is visible and inspectable on the host (`sqlite3 db/finally.db`). To start fresh, delete the file with `rm db/finally.db` — the backend re-initializes and re-seeds on the next request.
 
 ### Start/Stop Scripts
 
 **`scripts/start_mac.sh`** (macOS/Linux):
 - Builds the Docker image if not already built (or if `--build` flag passed)
-- Runs the container with the volume mount, port mapping, and `.env` file
+- Runs the container with the bind mount, port mapping, and `.env` file
 - Prints the URL to access the app
 - Optionally opens the browser
 
 **`scripts/stop_mac.sh`** (macOS/Linux):
 - Stops and removes the running container
-- Does NOT remove the volume (data persists)
+- Does NOT delete `db/finally.db` (data persists)
 
 **`scripts/start_windows.ps1`** / **`scripts/stop_windows.ps1`**: PowerShell equivalents for Windows.
 
@@ -454,3 +459,39 @@ The container is designed to deploy to AWS App Runner, Render, or any container 
 - Portfolio visualization: heatmap renders with correct colors, P&L chart has data points
 - AI chat (mocked): send a message, receive a response, trade execution appears inline
 - SSE resilience: disconnect and verify reconnection
+
+---
+
+## 13. Review — Questions, Clarifications & Simplifications
+
+This section captures open questions and feedback for refining the plan before/during the build. Grouped by theme.
+
+### Open Questions
+
+**Market data & pricing**
+1. Simulator tick vs. SSE push — **Decided:** a **single loop**. One asyncio task computes new prices and writes the cache (~500ms for the simulator); SSE readers push whatever is in the cache on their push cadence. No second timer, no drift. On the Massive path the poller writes the cache on its own ~15s schedule and SSE still reads from the same cache — the **cache is the single source of truth** in both cases.
+2. "Daily change %" baseline — **Decided:** anchor to a **per-ticker session-open price captured at process start**. When the simulator/poller first sets a ticker's price, store it as `open_price`; `change% = (current - open_price) / open_price`. Resets on container restart (consistent with the in-memory cache). **Relabel "Daily change" → "Change"** in §10/the watchlist, since without real previous-close data "daily" is misleading — this is change since the terminal started.
+3. Massive static price between polls — **Decided:** **push only on actual change**. SSE emits a price event only when the cached value changes, plus a periodic keepalive comment to hold the connection open. Keeps the flash animation meaningful and cuts redundant traffic. The simulator changes every tick (streams continuously); Massive changes ~every 15s. Same code path.
+4. Price cache on container restart — **Decided:** **accepted, resets on restart.** The cache is in-memory by design; sparklines, the session buffer (see 13), and the change% anchor (see 2) all reset on restart. Consistent with §6.
+
+**Portfolio & trades**
+5. Sell validation — **Decided:** **reject, no shorting.** Selling more than owned returns a validation error (same error path as insufficient cash); quantity is never clamped and never goes negative. No short positions in v1.
+6. Average cost on a partial sell — **Decided:** **`avg_cost` stays unchanged; only quantity decreases.** `avg_cost` changes only on buys, via weighted average: `new_avg = (old_qty*old_avg + buy_qty*price) / (old_qty + buy_qty)`. Realized P&L is **not** tracked as a field — it is implicit in the `trades` log and the cash balance.
+7. Zero-quantity position — **Decided:** **delete the row** on a full sell rather than keeping qty 0. Cleaner for the heatmap, positions table, and P&L math; no zero-qty special case anywhere.
+8. `portfolio_snapshots` every 30s — **Decided:** the task runs **always** (not gated on client connection), so the P&L chart has no gaps from closed browser sessions. Growth is bounded by **prune-on-insert with a 7-day retention window**: each snapshot insert also runs `DELETE FROM portfolio_snapshots WHERE recorded_at < :cutoff` (cutoff = now − 7 days). This caps the table at ~20k rows regardless of uptime and needs no separate cleanup job. The **frontend downsamples for display** (last-N or bucket-average) rather than storing pre-downsampled data. Multi-tier downsampling (1m→5m→1h) is intentionally skipped as overkill for a single-user simulated portfolio.
+
+**LLM / chat**
+9. Conversation history limit — **Decided:** load the **most recent 20 `chat_messages`** (user + assistant) into the prompt. Bounded tokens, enough context for follow-ups.
+10. Malformed LLM JSON fallback — **Decided:** **show the raw model output to the user** and execute nothing (empty `trades`/`watchlist_changes`). When parsing fails despite structured outputs, surface the raw text in the chat panel rather than a canned error, so the user sees exactly what the model returned. Never execute actions from an unparseable response.
+11. Add unknown ticker — **Decided:** **reject against a known-symbol allowlist.** The watchlist `add` validates against the set of tickers the active data source knows (the simulator's seeded universe, or a Massive symbol lookup). Unknown symbol → 400 with a clear message; in chat, the error is surfaced so the LLM can tell the user. Avoids a watchlist entry with no price.
+
+**Frontend**
+12. Sparklines accumulate "since page load" — **Decided:** yes, this is intended. Sparklines start empty on first load and fill in progressively from the SSE stream over seconds/minutes.
+13. The main detailed chart (§10): where does its historical data come from? **Decided:** all charting is **session-local for v1**. The frontend keeps one rolling buffer per ticker (e.g. last 500 ticks) fed by the SSE stream; the sparkline reads a short tail of it and the detail chart reads the whole buffer — same data source, no history endpoint, no new table. The detail chart is empty on load and fills in, identical UX to the sparkline. **Upgrade path (not v1):** add a backend in-memory ring buffer per ticker plus `GET /api/prices/{ticker}/history` so the chart loads non-empty after a browser reload within the same container session (survives reloads, not restarts). Synthetic GBM backfill is rejected — it fabricates history and misrepresents a trading terminal.
+
+### Clarifications Needed
+
+- **LLM model:** **Decided:** make it an env var `LLM_MODEL`, defaulting to `openrouter/openai/gpt-oss-120b` via Cerebras (the §9 value). This keeps the documented model as the out-of-the-box behavior while allowing the model to be swapped without code changes. Add `LLM_MODEL` to §5 and `.env.example`.
+- **CORS / origin:** **Decided:** no CORS config and no proxy needed. FastAPI serves both the static Next.js export and `/api/*` on the same origin (`localhost:8000`), so SSE via `EventSource` is same-origin and requires no `CORSMiddleware`. Caveat: SSE responses must not be buffered — set `Cache-Control: no-cache`, `X-Accel-Buffering: no`, and `Content-Type: text/event-stream`, and run a single Uvicorn process (no intermediate buffering proxy) so events flush immediately. The only place CORS would matter is the dev setup where Next.js runs on its own port (`:3000`) against the backend on `:8000`; in production the static export removes that split entirely.
+- **Docker volume path:** **Decided:** use a **bind mount of the project `db/` directory** (`-v "$(pwd)/db:/app/db"`), so the SQLite file is visible and inspectable on the host. All start scripts use this canonical form. This matches §3/§4/§7/§11: DB file at `db/finally.db`, `db/.gitkeep` committed, `finally.db` gitignored, "start fresh" = `rm db/finally.db`.
+
