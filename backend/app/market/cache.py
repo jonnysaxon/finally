@@ -1,4 +1,5 @@
 import time
+
 from .types import Quote
 
 

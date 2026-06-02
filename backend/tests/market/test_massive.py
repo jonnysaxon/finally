@@ -1,10 +1,11 @@
 import time
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import httpx
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from app.market.cache import PriceCache
 from app.market.massive import MassiveSource, _extract_price, _extract_ts
-
 
 # ---- _extract_price tests ------------------------------------------------
 

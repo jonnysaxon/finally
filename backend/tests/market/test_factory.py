@@ -1,8 +1,7 @@
-import pytest
 from app.market.cache import PriceCache
 from app.market.factory import create_source
-from app.market.simulator import SimulatorSource
 from app.market.massive import MassiveSource
+from app.market.simulator import SimulatorSource
 
 
 def test_no_api_key_returns_simulator(monkeypatch):

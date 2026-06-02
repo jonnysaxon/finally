@@ -1,8 +1,10 @@
 import math
+
 import pytest
+
 from app.market.cache import PriceCache
-from app.market.simulator import SimulatorSource, MU, DT
 from app.market.sim_config import SEED, TickerSpec
+from app.market.simulator import DT, MU, SimulatorSource
 
 
 def make_source(seed: int = 42, event_prob: float = 0) -> tuple[PriceCache, SimulatorSource]:
