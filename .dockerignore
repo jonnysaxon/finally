@@ -1,0 +1,46 @@
+# Version control / CI
+.git
+.github
+.gitignore
+
+# Env & secrets (passed at runtime via --env-file, never baked into the image)
+.env
+.env.*
+!.env.example
+
+# Node / frontend build artifacts (rebuilt inside the image)
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/.turbo
+frontend/coverage
+**/npm-debug.log*
+
+# Python / backend artifacts (deps installed via uv sync inside the image)
+backend/.venv
+**/__pycache__
+**/*.pyc
+backend/.pytest_cache
+backend/.ruff_cache
+backend/htmlcov
+backend/.coverage*
+
+# Runtime database (bind-mounted at runtime, not part of the image)
+db/finally.db
+db/finally.db-journal
+db/finally.db-wal
+db/finally.db-shm
+
+# Tests & local tooling not needed in the production image
+test
+planning
+scripts
+*.md
+!README.md
+
+# Editor / OS cruft
+.vscode
+.idea
+.DS_Store
+.claude
+.codex

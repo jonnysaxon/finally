@@ -1,0 +1,25 @@
+# Optional convenience wrapper around the production image (PLAN §11).
+# The canonical run is a single container on port 8000 with the project db/
+# directory bind-mounted for a host-visible, persistent SQLite file.
+services:
+  finally:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: finally:latest
+    container_name: finally
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Bind mount: db/finally.db is visible/inspectable on the host and
+      # persists across container restarts (PLAN §3/§11).
+      - ./db:/app/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

@@ -1,0 +1,62 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: #0d1117;
+  /* Subtle layered atmosphere: a faint amber/blue glow bleed + fine grid so the
+     dark surface reads as a lit terminal rather than a flat void. */
+  background-image:
+    radial-gradient(900px 500px at 12% -8%, rgba(236, 173, 10, 0.07), transparent 60%),
+    radial-gradient(1000px 600px at 100% 0%, rgba(32, 157, 215, 0.06), transparent 55%),
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+  background-attachment: fixed;
+  color: #e9edf4;
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular numerals everywhere — columns of prices must align. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Thin custom scrollbars to match the terminal density. */
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2f3a4d;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3c4a61;
+}
+
+/* Section label: the small uppercase caption that titles each panel. */
+.panel-label {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #9aa6ba;
+}

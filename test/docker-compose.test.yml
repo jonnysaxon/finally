@@ -1,0 +1,58 @@
+# E2E test stack (PLAN §12): the app container + a Playwright runner.
+#
+# Keeps browser dependencies out of the production image. Runs with
+# LLM_MOCK=true and the simulator (no MASSIVE_API_KEY) so chat responses and
+# the ticker universe are deterministic.
+#
+# Run from the repo root:
+#   docker compose -f test/docker-compose.test.yml up --build \
+#     --abort-on-container-exit --exit-code-from playwright
+#
+# The `playwright` exit code is the suite result. Tear down with:
+#   docker compose -f test/docker-compose.test.yml down -v
+services:
+  app:
+    build:
+      # Build the production image from the repo root (one level up from test/).
+      context: ..
+      dockerfile: Dockerfile
+    image: finally:test
+    environment:
+      # Deterministic, key-free run: mock LLM + built-in simulator.
+      LLM_MOCK: "true"
+      MASSIVE_API_KEY: ""
+      OPENROUTER_API_KEY: "test-not-used"
+    # Fresh, ephemeral SQLite each run so every suite starts from clean seed
+    # data. tmpfs over the bind mount keeps host db/ untouched by tests.
+    tmpfs:
+      - /app/db
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else 1)"
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  playwright:
+    # Matches @playwright/test ^1.49.0 in test/package.json; browsers
+    # (chromium) are preinstalled in this image.
+    image: mcr.microsoft.com/playwright:v1.49.0-jammy
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      # playwright.config.ts reads BASE_URL; point it at the app service.
+      BASE_URL: "http://app:8000"
+      CI: "true"
+    working_dir: /e2e
+    volumes:
+      # Mount the test project; node_modules/report stay inside the container
+      # via anonymous volumes so host state is not clobbered.
+      - .:/e2e
+      - /e2e/node_modules
+    # Install deps against the mounted package.json, then run the suite.
+    command: sh -c "npm ci && npm test"
