@@ -1,0 +1,12 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "\"/Users/jonnysaxon/.nvm/versions/node/v24.15.0/bin/node\" \"/Users/jonnysaxon/Library/Mobile Documents/com~apple~CloudDocs/jonnys/my stuff/mac pro laptop/AI/AI Coder Complete Claude Code and Coding Agents Course/projects/finally/.codex/hooks/gsd-check-update.js\""
+        }
+      ]
+    }
+  ]
+}
