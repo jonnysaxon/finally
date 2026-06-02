@@ -1,8 +1,10 @@
 import asyncio
+
 import pytest
+
 from app.market.cache import PriceCache
-from app.market.simulator import SimulatorSource
 from app.market.sim_config import SEED
+from app.market.simulator import SimulatorSource
 
 
 @pytest.mark.asyncio

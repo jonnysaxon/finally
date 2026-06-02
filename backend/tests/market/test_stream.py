@@ -1,15 +1,15 @@
-import asyncio
 import json
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
 
 from app.market.cache import PriceCache
 from app.market.stream import (
-    price_event_stream,
-    create_stream_router,
-    PUSH_SECONDS,
     KEEPALIVE_SECONDS,
+    PUSH_SECONDS,
     SSE_HEADERS,
+    create_stream_router,
+    price_event_stream,
 )
 
 
@@ -110,11 +110,10 @@ async def test_second_iteration_emits_only_changed_tickers():
     cache.set_price("AAPL", 190.0)
     cache.set_price("MSFT", 420.0)
 
-    # disconnect_after=2 → two is_disconnected checks → one retry + one snapshot + one empty loop
+    # disconnect_after=2 → two is_disconnected checks → one retry + one snapshot + one empty loop.
+    # Prices never change here, so the second iteration must emit nothing.
     chunks = await collect_chunks(cache, disconnect_after=2, push_seconds=0.001)
 
-    # Move AAPL price after cache is primed so the second iteration sees a change.
-    # Actually in this test the prices don't change, so the second iteration should emit nothing.
     price_event_chunks = [c for c in chunks if c.startswith("event: price")]
     tickers = [
         json.loads(c.split("\n")[1][len("data: "):])["ticker"]

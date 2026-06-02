@@ -14,8 +14,8 @@ import time
 
 try:
     from rich.console import Console
-    from rich.table import Table
     from rich.live import Live
+    from rich.table import Table
     from rich.text import Text
 except ImportError:
     print("Install rich: uv add --dev rich")
@@ -23,7 +23,6 @@ except ImportError:
 
 from app.market.cache import PriceCache
 from app.market.simulator import SimulatorSource
-from app.market.sim_config import SEED
 
 DURATION = 60
 

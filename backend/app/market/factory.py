@@ -1,8 +1,9 @@
 import os
-from .cache import PriceCache
+
 from .base import MarketSource
-from .simulator import SimulatorSource
+from .cache import PriceCache
 from .massive import MassiveSource
+from .simulator import SimulatorSource
 
 
 def create_source(cache: PriceCache, watched: "callable") -> MarketSource:

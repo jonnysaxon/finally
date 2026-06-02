@@ -1,4 +1,5 @@
 import pytest
+
 from app.market.types import Quote
 
 
@@ -40,7 +41,10 @@ def test_change_pct_zero_open_guard():
 def test_to_event_has_required_keys():
     q = Quote("AAPL", 191.0, 190.0, 190.0, 1_000_000.0)
     event = q.to_event()
-    assert set(event.keys()) == {"ticker", "price", "prev_price", "open_price", "change", "change_pct", "direction", "timestamp"}
+    assert set(event.keys()) == {
+        "ticker", "price", "prev_price", "open_price",
+        "change", "change_pct", "direction", "timestamp",
+    }
 
 
 def test_to_event_ticker():
