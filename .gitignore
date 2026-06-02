@@ -219,3 +219,9 @@ __marimo__/
 # Frontend static export copied into the backend at build time. The Docker build
 # (stage 2) copies frontend/out -> backend/app/static; it is generated, not source.
 backend/app/static/
+
+# Un-ignore the frontend source `lib` dir: the Python `lib/` rule above (packaging
+# build output) was wrongly clobbering frontend/src/lib (format/heatmap/priceBuffer
+# /api utilities that every component imports). It is source, not build output.
+!frontend/src/lib/
+!frontend/src/lib/**
